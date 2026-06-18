@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+models/*.pkl
+models/*.keras
+reports/*.html
+reports/*.json
+reports/*.csv
+data/*.csv

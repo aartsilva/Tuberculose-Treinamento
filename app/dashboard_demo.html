@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TBC Insight — Predição de Abandono de Tratamento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --bg: #0a0f0d;
+  --bg2: #111a15;
+  --bg3: #162019;
+  --surface: #1a2a1f;
+  --surface2: #223028;
+  --accent: #3ddc84;
+  --accent2: #2bb368;
+  --accent3: #1d9e75;
+  --danger: #e05252;
+  --warn: #e8a838;
+  --info: #4a9edd;
+  --text: #e8f0eb;
+  --text2: #9ab5a3;
+  --text3: #5a7a63;
+  --border: rgba(61,220,132,0.12);
+  --border2: rgba(61,220,132,0.22);
+  --mono: 'DM Mono', monospace;
+  --serif: 'DM Serif Display', serif;
+  --sans: 'Outfit', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* SIDEBAR */
+.sidebar {
+  position: fixed; left: 0; top: 0; width: 220px; height: 100vh;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  z-index: 100;
+  padding: 0;
+}
+.logo {
+  padding: 28px 24px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.logo-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.logo-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  color: var(--text);
+  line-height: 1.1;
+}
+.logo-title em { color: var(--accent); font-style: italic; }
+
+.nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
+.nav-section { margin-bottom: 20px; }
+.nav-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 0 12px;
+  margin-bottom: 6px;
+}
+.nav-btn {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 9px 12px;
+  border: none; background: none;
+  color: var(--text2);
+  font-family: var(--sans); font-size: 13.5px; font-weight: 400;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+.nav-btn:hover { background: var(--surface); color: var(--text); }
+.nav-btn.active {
+  background: rgba(61,220,132,0.1);
+  color: var(--accent);
+  font-weight: 500;
+}
+.nav-btn .ico {
+  width: 18px; height: 18px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.nav-btn.active .ico { opacity: 1; }
+
+.sidebar-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text3);
+  font-family: var(--mono);
+}
+
+/* MAIN */
+.main {
+  margin-left: 220px;
+  min-height: 100vh;
+}
+
+/* TOP BAR */
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(10,15,13,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 36px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.page-title { font-size: 14px; font-weight: 500; color: var(--text2); }
+.page-title span { color: var(--text); }
+.status-dot {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text3);
+  font-family: var(--mono);
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); }
+.dot.loaded { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+/* PANELS */
+.panel { display: none; padding: 36px; }
+.panel.active { display: block; }
+
+/* HERO SECTION */
+.hero {
+  margin-bottom: 40px;
+}
+.hero h2 {
+  font-family: var(--serif);
+  font-size: 36px;
+  color: var(--text);
+  margin-bottom: 8px;
+  line-height: 1.15;
+}
+.hero h2 em { color: var(--accent); font-style: italic; }
+.hero p {
+  font-size: 15px; color: var(--text2); max-width: 560px;
+  line-height: 1.7;
+}
+
+/* CARDS */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 16px;
+  font-family: var(--mono);
+}
+
+/* METRICS GRID */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.metric {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+.metric-label {
+  font-size: 11px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 8px;
+}
+.metric-value {
+  font-size: 28px; font-weight: 600;
+  color: var(--text); line-height: 1;
+  font-family: var(--mono);
+}
+.metric-value.accent { color: var(--accent); }
+.metric-value.danger { color: var(--danger); }
+.metric-value.warn { color: var(--warn); }
+.metric-value.info { color: var(--info); }
+.metric-sub {
+  font-size: 11px; color: var(--text3); margin-top: 4px;
+  font-family: var(--mono);
+}
+
+/* UPLOAD */
+.upload-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
+  margin-bottom: 24px;
+}
+.upload-zone {
+  border: 1.5px dashed var(--border2);
+  border-radius: 12px;
+  padding: 28px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg3);
+}
+.upload-zone:hover { border-color: var(--accent); background: rgba(61,220,132,0.04); }
+.upload-zone.loaded { border-color: var(--accent); border-style: solid; }
+.upload-zone svg { margin: 0 auto 12px; display: block; }
+.upload-zone p { font-size: 13px; color: var(--text2); }
+.upload-zone .fname {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--accent); margin-top: 8px;
+  background: rgba(61,220,132,0.08);
+  border-radius: 6px; padding: 4px 10px;
+  display: inline-block;
+}
+.upload-zone .uz-label {
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 10px; font-weight: 600;
+  font-family: var(--mono);
+}
+
+/* CHART GRID */
+.chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.chart-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+/* TABLE */
+.data-table-wrap { overflow-x: auto; }
+.data-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 12px; font-family: var(--mono);
+}
+.data-table th {
+  text-align: left; padding: 8px 14px;
+  border-bottom: 1px solid var(--border2);
+  color: var(--text3); font-weight: 500;
+  letter-spacing: 0.05em; white-space: nowrap;
+}
+.data-table td {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text2); white-space: nowrap;
+}
+.data-table tr:hover td { background: var(--surface2); color: var(--text); }
+
+/* PILLS */
+.pill-row {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 20px;
+}
+.pill {
+  padding: 5px 13px; border-radius: 99px;
+  font-size: 12px; font-family: var(--mono);
+  border: 1px solid var(--border2);
+  background: var(--bg3); color: var(--text2);
+  cursor: pointer; transition: all 0.15s;
+}
+.pill:hover { border-color: var(--accent); color: var(--text); }
+.pill.active { background: rgba(61,220,132,0.15); border-color: var(--accent); color: var(--accent); }
+
+/* CONFUSION MATRIX */
+.cm-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  max-width: 280px; margin: 16px auto;
+}
+.cm-cell {
+  border-radius: 10px; padding: 18px 12px;
+  text-align: center;
+}
+.cm-cell .cmv { font-size: 26px; font-weight: 600; font-family: var(--mono); }
+.cm-cell .cml { font-size: 11px; margin-top: 4px; }
+
+/* FEATURE BAR */
+.feat-bar-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 10px;
+}
+.feat-name { font-size: 12px; font-family: var(--mono); color: var(--text2); width: 200px; flex-shrink: 0; text-align: right; }
+.feat-bar-bg { flex: 1; background: var(--bg3); border-radius: 4px; height: 18px; overflow: hidden; }
+.feat-bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-family: var(--mono); color: var(--bg); font-weight: 500; }
+.feat-val { font-size: 12px; font-family: var(--mono); color: var(--text3); width: 48px; text-align: right; }
+
+/* EMPTY */
+.empty {
+  text-align: center; padding: 60px 20px;
+  color: var(--text3);
+}
+.empty svg { margin: 0 auto 16px; display: block; opacity: 0.3; }
+.empty p { font-size: 14px; }
+
+/* BUTTONS */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px; border-radius: 8px;
+  font-family: var(--sans); font-size: 13px; font-weight: 500;
+  cursor: pointer; border: 1px solid var(--border2);
+  background: var(--surface); color: var(--text2);
+  transition: all 0.15s;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(61,220,132,0.06); }
+.btn-accent {
+  background: var(--accent); border-color: var(--accent);
+  color: #0a0f0d; font-weight: 600;
+}
+.btn-accent:hover { background: var(--accent2); border-color: var(--accent2); color: #0a0f0d; }
+
+/* BADGE */
+.badge {
+  display: inline-block;
+  padding: 2px 8px; border-radius: 6px;
+  font-size: 11px; font-family: var(--mono);
+  border: 1px solid;
+}
+.badge-green { background: rgba(61,220,132,0.1); border-color: rgba(61,220,132,0.3); color: var(--accent); }
+.badge-red { background: rgba(224,82,82,0.1); border-color: rgba(224,82,82,0.3); color: var(--danger); }
+.badge-blue { background: rgba(74,158,221,0.1); border-color: rgba(74,158,221,0.3); color: var(--info); }
+
+/* LEGEND */
+.legend {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  margin-bottom: 12px; font-size: 12px; color: var(--text2);
+}
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-sq { width: 10px; height: 10px; border-radius: 2px; }
+
+/* ANIMATIONS */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.panel.active { animation: fadeIn 0.25s ease; }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .sidebar { width: 60px; }
+  .logo-title, .logo-tag, .nav-label, .nav-btn span, .sidebar-footer { display: none; }
+  .main { margin-left: 60px; }
+  .chart-grid-2, .chart-grid-3, .upload-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="logo">
+    <div class="logo-tag">DataSUS / SINAN</div>
+    <div class="logo-title">TBC<br><em>Insight</em></div>
+  </div>
+  <div class="nav">
+    <div class="nav-section">
+      <div class="nav-label">Dados</div>
+      <button class="nav-btn active" onclick="goTo('dados')">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>
+        <span>Upload & Visão Geral</span>
+      </button>
+      <button class="nav-btn" onclick="goTo('dist')">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="6" width="4" height="15"/><rect x="17" y="3" width="4" height="18"/></svg>
+        <span>Distribuições</span>
+      </button>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Modelo</div>
+      <button class="nav-btn" onclick="goTo('metricas')">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span>Métricas</span>
+      </button>
+      <button class="nav-btn" onclick="goTo('features')">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        <span>Importância</span>
+      </button>
+      <button class="nav-btn" onclick="goTo('simulador')">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg>
+        <span>Simulador</span>
+      </button>
+    </div>
+  </div>
+  <div class="sidebar-footer">v1.0 · 2025</div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="page-title" id="page-title">TBC Insight — <span>Upload & Visão Geral</span></div>
+    <div class="status-dot">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">aguardando dados</span>
+    </div>
+  </div>
+
+  <!-- ===== DADOS ===== -->
+  <div class="panel active" id="panel-dados">
+    <div class="hero">
+      <h2>Análise de <em>Abandono</em><br>de Tratamento</h2>
+      <p>Faça upload dos arquivos CSV exportados do pipeline para visualizar estatísticas, treinar análises e explorar os dados do SINAN/DataSUS.</p>
+    </div>
+
+    <div class="upload-grid">
+      <div>
+        <div class="upload-zone" id="zone-train" onclick="document.getElementById('file-train').click()" ondragover="dragOver(event)" ondrop="dropFile(event,'train')">
+          <div class="uz-label">Treino</div>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text3)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>Clique ou arraste o arquivo</p>
+          <div id="info-train"></div>
+        </div>
+        <input type="file" id="file-train" accept=".csv" style="display:none" onchange="loadCSV(this,'train')">
+      </div>
+      <div>
+        <div class="upload-zone" id="zone-teste1" onclick="document.getElementById('file-teste1').click()" ondragover="dragOver(event)" ondrop="dropFile(event,'teste1')">
+          <div class="uz-label">Teste 1</div>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text3)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>Clique ou arraste o arquivo</p>
+          <div id="info-teste1"></div>
+        </div>
+        <input type="file" id="file-teste1" accept=".csv" style="display:none" onchange="loadCSV(this,'teste1')">
+      </div>
+      <div>
+        <div class="upload-zone" id="zone-teste2" onclick="document.getElementById('file-teste2').click()" ondragover="dragOver(event)" ondrop="dropFile(event,'teste2')">
+          <div class="uz-label">Teste 2</div>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text3)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>Clique ou arraste o arquivo</p>
+          <div id="info-teste2"></div>
+        </div>
+        <input type="file" id="file-teste2" accept=".csv" style="display:none" onchange="loadCSV(this,'teste2')">
+      </div>
+    </div>
+
+    <div id="overview-section" style="display:none;">
+      <div class="metrics-grid" id="overview-metrics"></div>
+      <div class="card">
+        <div class="card-title">Prévia dos dados — treino.csv</div>
+        <div class="data-table-wrap"><div id="data-preview"></div></div>
+      </div>
+    </div>
+
+    <div id="dados-empty" class="empty">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      <p>Faça upload de ao menos um arquivo CSV para começar</p>
+    </div>
+  </div>
+
+  <!-- ===== DISTRIBUIÇÕES ===== -->
+  <div class="panel" id="panel-dist">
+    <div class="hero" style="margin-bottom:24px;">
+      <h2>Análise de <em>Distribuições</em></h2>
+      <p>Explore a distribuição de cada variável e identifique valores ausentes.</p>
+    </div>
+    <div id="dist-empty" class="empty">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="6" width="4" height="15"/><rect x="17" y="3" width="4" height="18"/></svg>
+      <p>Faça upload do arquivo de treino para explorar as distribuições</p>
+    </div>
+    <div id="dist-content" style="display:none;">
+      <div class="card">
+        <div class="card-title">Selecionar variável</div>
+        <div class="pill-row" id="col-pills"></div>
+        <div class="chart-grid-2">
+          <div>
+            <div class="card-title" id="dist-title" style="margin-bottom:8px;">Distribuição</div>
+            <div style="position:relative;height:240px;"><canvas id="distChart" role="img" aria-label="Distribuição da variável selecionada"></canvas></div>
+          </div>
+          <div>
+            <div class="card-title" style="margin-bottom:8px;">Variável-alvo — abandono</div>
+            <div class="legend" id="target-legend"></div>
+            <div style="position:relative;height:220px;"><canvas id="targetChart" role="img" aria-label="Distribuição do abandono"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <div class="card" id="missing-card">
+        <div class="card-title">Valores ausentes por variável (%)</div>
+        <div style="position:relative;" id="missing-wrap"><canvas id="missingChart" role="img" aria-label="Missings por coluna"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MÉTRICAS ===== -->
+  <div class="panel" id="panel-metricas">
+    <div class="hero" style="margin-bottom:24px;">
+      <h2>Avaliação do <em>Modelo</em></h2>
+      <p>Métricas de desempenho, curva ROC e matriz de confusão.</p>
+    </div>
+    <div id="metricas-empty" class="empty">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <p>Carregue dados demo ou importe resultados do modelo</p>
+      <br>
+      <button class="btn btn-accent" onclick="loadDemoMetrics()">✦ Carregar dados demo</button>
+    </div>
+    <div id="metricas-content" style="display:none;">
+      <div class="metrics-grid" id="metrics-cards"></div>
+      <div class="chart-grid-2" style="margin-bottom:16px;">
+        <div class="card">
+          <div class="card-title">Curva ROC</div>
+          <div style="position:relative;height:300px;"><canvas id="rocChart" role="img" aria-label="Curva ROC"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Matriz de confusão — Rede Neural</div>
+          <div class="cm-grid" id="cm-grid"></div>
+          <p style="font-size:11px;color:var(--text3);text-align:center;font-family:var(--mono);">Threshold = 0.5</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Comparação de modelos por conjunto</div>
+        <div class="legend" id="model-legend"></div>
+        <div style="position:relative;height:220px;"><canvas id="compareChart" role="img" aria-label="F1 por conjunto e modelo"></canvas></div>
+      </div>
+      <div class="chart-grid-3">
+        <div class="card">
+          <div class="card-title">Precisão por limiar</div>
+          <div style="position:relative;height:180px;"><canvas id="precChart" role="img" aria-label="Precisão por limiar"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Recall por limiar</div>
+          <div style="position:relative;height:180px;"><canvas id="recChart" role="img" aria-label="Recall por limiar"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">F1-score por limiar</div>
+          <div style="position:relative;height:180px;"><canvas id="f1Chart" role="img" aria-label="F1 por limiar"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FEATURES ===== -->
+  <div class="panel" id="panel-features">
+    <div class="hero" style="margin-bottom:24px;">
+      <h2>Importância de <em>Features</em></h2>
+      <p>Permutation Importance e SHAP values — entenda o que o modelo aprendeu.</p>
+    </div>
+    <div id="feat-empty" class="empty">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+      <p>Carregue os dados de importância de features</p>
+      <br>
+      <button class="btn btn-accent" onclick="loadDemoFeatures()">✦ Carregar dados demo</button>
+    </div>
+    <div id="feat-content" style="display:none;">
+      <div class="card">
+        <div class="card-title">Permutation Importance — top 12 features</div>
+        <div id="perm-bars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">|SHAP| médio — top 12 features</div>
+        <div id="shap-bars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Contribuição SHAP — aumenta vs reduz abandono</div>
+        <div style="position:relative;height:340px;"><canvas id="shapStackChart" role="img" aria-label="SHAP positivo vs negativo"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SIMULADOR ===== -->
+  <div class="panel" id="panel-simulador">
+    <div class="hero" style="margin-bottom:24px;">
+      <h2>Simulador de <em>Risco</em></h2>
+      <p>Simule o risco de abandono para um paciente hipotético. Insira os valores e veja a predição do modelo.</p>
+    </div>
+    <div class="chart-grid-2">
+      <div class="card">
+        <div class="card-title">Dados do paciente</div>
+        <div style="display:grid;gap:14px;">
+          <div>
+            <label style="font-size:12px;color:var(--text3);font-family:var(--mono);display:block;margin-bottom:6px;">Idade</label>
+            <input type="range" id="sim-idade" min="15" max="80" value="38" oninput="updateSim()" style="width:100%;accent-color:var(--accent);">
+            <span style="font-size:13px;font-family:var(--mono);color:var(--accent);" id="sim-idade-val">38 anos</span>
+          </div>
+          <div>
+            <label style="font-size:12px;color:var(--text3);font-family:var(--mono);display:block;margin-bottom:6px;">Sexo</label>
+            <div style="display:flex;gap:8px;">
+              <button class="btn active-sim" id="btn-M" onclick="simSelect('sexo','M')" style="flex:1;justify-content:center;">Masculino</button>
+              <button class="btn" id="btn-F" onclick="simSelect('sexo','F')" style="flex:1;justify-content:center;">Feminino</button>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div>
+              <label style="font-size:12px;color:var(--text3);font-family:var(--mono);display:block;margin-bottom:6px;">Alcoolismo</label>
+              <div style="display:flex;gap:6px;">
+                <button class="btn" id="btn-alc-S" onclick="simToggle('alc','S')" style="flex:1;justify-content:center;font-size:12px;">Sim</button>
+                <button class="btn active-sim" id="btn-alc-N" onclick="simToggle('alc','N')" style="flex:1;justify-content:center;font-size:12px;">Não</button>
+              </div>
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--text3);font-family:var(--mono);display:block;margin-bottom:6px;">HIV/AIDS</label>
+              <div style="display:flex;gap:6px;">
+                <button class="btn" id="btn-hiv-S" onclick="simToggle('hiv','S')" style="flex:1;justify-content:center;font-size:12px;">Sim</button>
+                <button class="btn active-sim" id="btn-hiv-N" onclick="simToggle('hiv','N')" style="flex:1;justify-content:center;font-size:12px;">Não</button>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div>
+              <label style="font-size:12px;color:var(--text3);font-family:var(--mono);display:block;margin-bottom:6px;">Diabetes</label>
+              <div style="display:flex;gap:6px;">
+                <button class="btn" id="btn-dia-S" onclick="simToggle('dia','S')" style="flex:1;justify-content:center;font-size:12px;">Sim</button>
+                <button class="btn active-sim" id="btn-dia-N" onclick="simToggle('dia','N')" style="flex:1;justify-content:center;font-size:12px;">Não</button>
+              </div>
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--text3);font-family:var(--mono);display:block;margin-bottom:6px;">Institucionalizado</label>
+              <div style="display:flex;gap:6px;">
+                <button class="btn" id="btn-inst-S" onclick="simToggle('inst','S')" style="flex:1;justify-content:center;font-size:12px;">Sim</button>
+                <button class="btn active-sim" id="btn-inst-N" onclick="simToggle('inst','N')" style="flex:1;justify-content:center;font-size:12px;">Não</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:12px;color:var(--text3);font-family:var(--mono);display:block;margin-bottom:6px;">Escolaridade</label>
+            <select id="sim-esc" onchange="updateSim()" style="width:100%;background:var(--bg3);color:var(--text);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;font-family:var(--mono);font-size:12px;">
+              <option value="0">Sem escolaridade</option>
+              <option value="1">Fundamental incompleto</option>
+              <option value="2" selected>Fundamental completo</option>
+              <option value="3">Médio completo</option>
+              <option value="4">Superior</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+        <div class="card-title">Risco estimado de abandono</div>
+        <div style="position:relative;width:180px;height:180px;margin:20px auto;">
+          <canvas id="gaugeChart" role="img" aria-label="Gauge de risco"></canvas>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-30%);text-align:center;">
+            <div style="font-size:36px;font-weight:600;font-family:var(--mono);" id="gauge-pct">—</div>
+            <div style="font-size:12px;color:var(--text3);">probabilidade</div>
+          </div>
+        </div>
+        <div id="risco-badge" style="margin-bottom:16px;"></div>
+        <div id="risco-factors" style="font-size:13px;color:var(--text2);max-width:280px;line-height:1.6;text-align:left;"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<style>
+.btn.active-sim { border-color: var(--accent); color: var(--accent); background: rgba(61,220,132,0.08); }
+</style>
+
+<script>
+const S = { train: null, teste1: null, teste2: null };
+const CH = {};
+const simState = { sexo: 'M', alc: 'N', hiv: 'N', dia: 'N', inst: 'N' };
+
+function goTo(name) {
+  const titles = { dados:'Upload & Visão Geral', dist:'Distribuições', metricas:'Métricas do Modelo', features:'Importância de Features', simulador:'Simulador de Risco' };
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
+  document.querySelector('#page-title span').textContent = titles[name] || name;
+}
+
+function dragOver(e) { e.preventDefault(); }
+function dropFile(e, name) { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f, name); }
+
+function loadCSV(input, name) { const f = input.files[0]; if (f) handleFile(f, name); }
+
+function handleFile(file, name) {
+  Papa.parse(file, {
+    header: true, skipEmptyLines: true, dynamicTyping: true,
+    complete: (res) => {
+      S[name] = res.data;
+      const zone = document.getElementById('zone-'+name);
+      zone.classList.add('loaded');
+      zone.querySelector('p').textContent = 'Arquivo carregado';
+      document.getElementById('info-'+name).innerHTML = `<div class="fname">${file.name} · ${res.data.length} linhas</div>`;
+      if (name === 'train') { renderOverview(); renderDist(); }
+      const loaded = ['train','teste1','teste2'].filter(n => S[n]);
+      document.getElementById('status-dot').className = 'dot loaded';
+      document.getElementById('status-text').textContent = loaded.length + '/3 arquivos carregados';
+    }
+  });
+}
+
+function renderOverview() {
+  const d = S.train; if (!d || !d.length) return;
+  document.getElementById('dados-empty').style.display = 'none';
+  document.getElementById('overview-section').style.display = 'block';
+  const cols = Object.keys(d[0]);
+  const tc = d.length * cols.length;
+  const mc = d.reduce((a,r) => a + cols.filter(c => r[c]===null||r[c]===''||r[c]===undefined).length, 0);
+  let tCol = cols.find(c => ['abandono','target','alvo','ABANDON','SITUA_ENCE','desfecho'].some(k => c.toLowerCase().includes(k.toLowerCase())));
+  let pos = tCol ? d.filter(r => r[tCol]==1||r[tCol]==='Sim'||r[tCol]==='1').length : 0;
+  const numCols = cols.filter(c => typeof d[0][c]==='number').length;
+
+  document.getElementById('overview-metrics').innerHTML = `
+    <div class="metric"><div class="metric-label">Amostras</div><div class="metric-value accent">${d.length.toLocaleString('pt-BR')}</div><div class="metric-sub">treino.csv</div></div>
+    <div class="metric"><div class="metric-label">Variáveis</div><div class="metric-value">${cols.length}</div><div class="metric-sub">${numCols} numéricas</div></div>
+    <div class="metric"><div class="metric-label">Missings</div><div class="metric-value warn">${((mc/tc)*100).toFixed(1)}%</div><div class="metric-sub">${mc.toLocaleString()} células</div></div>
+    ${tCol ? `<div class="metric"><div class="metric-label">Taxa de abandono</div><div class="metric-value danger">${((pos/d.length)*100).toFixed(1)}%</div><div class="metric-sub">${pos} casos positivos</div></div>` : ''}
+  `;
+
+  const pCols = cols.slice(0,9);
+  let html = `<table class="data-table"><thead><tr>${pCols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+  d.slice(0,8).forEach(r => { html += `<tr>${pCols.map(c=>`<td>${r[c]??'—'}</td>`).join('')}</tr>`; });
+  html += '</tbody></table>';
+  if (cols.length > 9) html += `<p style="font-size:11px;color:var(--text3);margin-top:8px;font-family:var(--mono);">Exibindo 9 de ${cols.length} colunas</p>`;
+  document.getElementById('data-preview').innerHTML = html;
+}
+
+function renderDist() {
+  const d = S.train; if (!d||!d.length) return;
+  document.getElementById('dist-empty').style.display = 'none';
+  document.getElementById('dist-content').style.display = 'block';
+  const cols = Object.keys(d[0]);
+  const numC = cols.filter(c=>typeof d[0][c]==='number').slice(0,20);
+  const catC = cols.filter(c=>typeof d[0][c]!=='number').slice(0,10);
+  const all = [...numC,...catC];
+  document.getElementById('col-pills').innerHTML = all.map((c,i)=>`<button class="pill${i===0?' active':''}" onclick="selectPill('${c}',this)">${c}</button>`).join('');
+  if (all.length) drawDist(all[0]);
+
+  let tCol = cols.find(c=>['abandono','target','alvo','ABANDON','SITUA_ENCE','desfecho'].some(k=>c.toLowerCase().includes(k.toLowerCase())));
+  if (!tCol) tCol = cols[cols.length-1];
+  const freq = {};
+  d.forEach(r=>{const k=String(r[tCol]??'Nulo'); freq[k]=(freq[k]||0)+1;});
+  const tL = Object.keys(freq), tD = tL.map(k=>freq[k]);
+  const TC = ['#3ddc84','#e05252','#4a9edd','#e8a838','#5a7a63'];
+  document.getElementById('target-legend').innerHTML = tL.map((l,i)=>`<span class="legend-item"><span class="legend-sq" style="background:${TC[i%5]};"></span>${l}: ${tD[i]}</span>`).join('');
+  if (CH.target) CH.target.destroy();
+  CH.target = new Chart(document.getElementById('targetChart'),{
+    type:'doughnut',
+    data:{labels:tL,datasets:[{data:tD,backgroundColor:TC.slice(0,tL.length),borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}
+  });
+
+  const mr = cols.map(c=>({c,r:d.filter(r=>r[c]===null||r[c]===''||r[c]===undefined).length/d.length*100})).filter(x=>x.r>0).sort((a,b)=>b.r-a.r).slice(0,16);
+  const mw = document.getElementById('missing-wrap');
+  if (!mr.length){mw.innerHTML='<p style="font-size:13px;color:var(--text3);font-family:var(--mono);">Nenhum missing encontrado!</p>';return;}
+  mw.style.height=Math.max(160,mr.length*32+60)+'px';
+  mw.innerHTML='<canvas id="missingChart" role="img" aria-label="Missings por coluna"></canvas>';
+  if (CH.missing) CH.missing.destroy();
+  CH.missing = new Chart(document.getElementById('missingChart'),{
+    type:'bar',
+    data:{labels:mr.map(x=>x.c),datasets:[{data:mr.map(x=>parseFloat(x.r.toFixed(1))),backgroundColor:'#4a9edd',borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{max:100,ticks:{callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.05)'}},y:{grid:{color:'rgba(255,255,255,0.03)'}}}}
+  });
+}
+
+function selectPill(col, el) {
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  drawDist(col);
+}
+
+function drawDist(col) {
+  const d = S.train; if (!d) return;
+  document.getElementById('dist-title').textContent = col;
+  const vals = d.map(r=>r[col]).filter(v=>v!==null&&v!==''&&v!==undefined);
+  let labels,data;
+  if (typeof vals[0]==='number') {
+    const mn=Math.min(...vals),mx=Math.max(...vals),bins=16,step=(mx-mn)/bins;
+    const bk = Array.from({length:bins},(_,i)=>({l:(mn+i*step).toFixed(1),c:0}));
+    vals.forEach(v=>{const i=Math.min(Math.floor((v-mn)/step),bins-1);bk[i].c++;});
+    labels=bk.map(b=>b.l); data=bk.map(b=>b.c);
+  } else {
+    const fr={};vals.forEach(v=>{const k=String(v);fr[k]=(fr[k]||0)+1;});
+    const s=Object.entries(fr).sort((a,b)=>b[1]-a[1]).slice(0,14);
+    labels=s.map(x=>x[0]); data=s.map(x=>x[1]);
+  }
+  if (CH.dist) CH.dist.destroy();
+  CH.dist = new Chart(document.getElementById('distChart'),{
+    type:'bar',
+    data:{labels,datasets:[{data,backgroundColor:'#3ddc84',borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxRotation:45,autoSkip:true,color:'#5a7a63'},grid:{color:'rgba(255,255,255,0.03)'}},y:{ticks:{color:'#5a7a63'},grid:{color:'rgba(255,255,255,0.05)'}}}}
+  });
+}
+
+function loadDemoMetrics() {
+  document.getElementById('metricas-empty').style.display='none';
+  document.getElementById('metricas-content').style.display='block';
+
+  document.getElementById('metrics-cards').innerHTML=`
+    <div class="metric"><div class="metric-label">AUC-ROC</div><div class="metric-value accent">0.84</div><div class="metric-sub">Rede Neural</div></div>
+    <div class="metric"><div class="metric-label">F1-score</div><div class="metric-value accent">0.76</div><div class="metric-sub">Classe positiva</div></div>
+    <div class="metric"><div class="metric-label">Precisão</div><div class="metric-value">0.79</div></div>
+    <div class="metric"><div class="metric-label">Recall</div><div class="metric-value">0.73</div></div>
+    <div class="metric"><div class="metric-label">Acurácia</div><div class="metric-value">0.81</div></div>
+    <div class="metric"><div class="metric-label">Baseline AUC</div><div class="metric-value info">0.76</div><div class="metric-sub">Reg. Logística</div></div>
+  `;
+
+  const fprs=[0,0.04,0.09,0.16,0.24,0.34,0.46,0.60,0.76,0.90,1];
+  const nn=[0,0.31,0.52,0.65,0.74,0.82,0.87,0.91,0.95,0.98,1];
+  const lr=[0,0.19,0.36,0.50,0.62,0.71,0.79,0.86,0.92,0.97,1];
+  if (CH.roc) CH.roc.destroy();
+  CH.roc = new Chart(document.getElementById('rocChart'),{
+    type:'line',
+    data:{labels:fprs,datasets:[
+      {label:'Rede Neural (AUC=0.84)',data:nn,borderColor:'#3ddc84',backgroundColor:'rgba(61,220,132,0.07)',fill:true,tension:0.4,pointRadius:3,borderWidth:2},
+      {label:'Reg. Logística (AUC=0.76)',data:lr,borderColor:'#4a9edd',borderDash:[5,4],tension:0.4,pointRadius:2,borderWidth:1.5},
+      {label:'Aleatório',data:fprs,borderColor:'#5a7a63',borderDash:[3,3],pointRadius:0,borderWidth:1}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#9ab5a3',font:{size:11},boxWidth:14}}},scales:{
+      x:{ticks:{color:'#5a7a63'},grid:{color:'rgba(255,255,255,0.04)'},title:{display:true,text:'Taxa Falso Positivo',color:'#5a7a63',font:{size:11}}},
+      y:{ticks:{color:'#5a7a63'},grid:{color:'rgba(255,255,255,0.04)'},title:{display:true,text:'Taxa Verdadeiro Positivo',color:'#5a7a63',font:{size:11}}}
+    }}
+  });
+
+  const cm=[
+    {v:'342',l:'Verdadeiro Negativo',bg:'rgba(61,220,132,0.12)',fg:'#3ddc84'},
+    {v:'78',l:'Falso Positivo',bg:'rgba(224,82,82,0.12)',fg:'#e05252'},
+    {v:'62',l:'Falso Negativo',bg:'rgba(224,82,82,0.12)',fg:'#e05252'},
+    {v:'218',l:'Verdadeiro Positivo',bg:'rgba(61,220,132,0.12)',fg:'#3ddc84'}
+  ];
+  document.getElementById('cm-grid').innerHTML=cm.map(c=>`<div class="cm-cell" style="background:${c.bg};border:1px solid ${c.fg}22;"><div class="cmv" style="color:${c.fg};">${c.v}</div><div class="cml" style="color:${c.fg};opacity:0.7;font-size:10px;font-family:var(--mono);">${c.l}</div></div>`).join('');
+
+  document.getElementById('model-legend').innerHTML=`<span class="legend-item"><span class="legend-sq" style="background:#3ddc84;"></span>Rede Neural</span><span class="legend-item"><span class="legend-sq" style="background:#4a9edd;"></span>Reg. Logística</span>`;
+  if (CH.compare) CH.compare.destroy();
+  CH.compare = new Chart(document.getElementById('compareChart'),{
+    type:'bar',
+    data:{labels:['Treino','Teste 1','Teste 2'],datasets:[
+      {label:'Rede Neural',data:[0.83,0.76,0.74],backgroundColor:'#3ddc84',borderRadius:6},
+      {label:'Reg. Logística',data:[0.72,0.69,0.68],backgroundColor:'#4a9edd',borderRadius:6}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
+      x:{ticks:{color:'#5a7a63'},grid:{color:'rgba(255,255,255,0.04)'}},
+      y:{min:0.5,max:1,ticks:{color:'#5a7a63'},grid:{color:'rgba(255,255,255,0.04)'}}
+    }}
+  });
+
+  const thresholds=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9];
+  const prec=[0.45,0.52,0.61,0.70,0.79,0.84,0.88,0.91,0.93];
+  const rec=[0.97,0.94,0.90,0.83,0.73,0.60,0.45,0.29,0.11];
+  const f1=thresholds.map((_,i)=>{const p=prec[i],r=rec[i];return parseFloat((2*p*r/(p+r)).toFixed(2));});
+  const opts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
+    x:{ticks:{color:'#5a7a63'},grid:{color:'rgba(255,255,255,0.04)'}},
+    y:{min:0,max:1,ticks:{color:'#5a7a63'},grid:{color:'rgba(255,255,255,0.04)'}}
+  }};
+  ['prec','rec','f1'].forEach((id,i)=>{
+    if(CH[id]) CH[id].destroy();
+    CH[id]=new Chart(document.getElementById(id+'Chart'),{
+      type:'line',
+      data:{labels:thresholds,datasets:[{data:[prec,rec,f1][i],borderColor:['#3ddc84','#e8a838','#4a9edd'][i],backgroundColor:'transparent',tension:0.4,pointRadius:3,borderWidth:2}]},
+      options:opts
+    });
+  });
+}
+
+function loadDemoFeatures() {
+  document.getElementById('feat-empty').style.display='none';
+  document.getElementById('feat-content').style.display='block';
+  const feats=['Idade','Tempo de trat.','Alcoolismo','Institucionalização','HIV/AIDS','Diabetes','Doença mental','Zona de residência','Raça/cor','Escolaridade','Sexo','UF notificação'];
+  const permV=[0.142,0.118,0.097,0.085,0.073,0.061,0.054,0.048,0.041,0.035,0.029,0.021];
+  const shapV=[0.38,0.31,0.24,0.21,0.19,0.15,0.13,0.11,0.09,0.08,0.06,0.04];
+  const maxP=permV[0], maxS=shapV[0];
+
+  const renderBars = (containerId, vals, maxVal, color) => {
+    document.getElementById(containerId).innerHTML = feats.map((f,i)=>`
+      <div class="feat-bar-row">
+        <div class="feat-name">${f}</div>
+        <div class="feat-bar-bg"><div class="feat-bar-fill" style="width:${(vals[i]/maxVal*100).toFixed(1)}%;background:${color};">${vals[i]}</div></div>
+        <div class="feat-val">${vals[i]}</div>
+      </div>`).join('');
+  };
+  renderBars('perm-bars', permV, maxP, '#3ddc84');
+  renderBars('shap-bars', shapV, maxS, '#4a9edd');
+
+  const posS=[0.22,0.18,0.14,0.12,0.11,0.09,0.08,0.07,0.05,0.04,0.03,0.02];
+  const negS=[-0.16,-0.13,-0.10,-0.09,-0.08,-0.06,-0.05,-0.04,-0.04,-0.04,-0.03,-0.02];
+  if (CH.shapStack) CH.shapStack.destroy();
+  CH.shapStack = new Chart(document.getElementById('shapStackChart'),{
+    type:'bar',
+    data:{labels:feats,datasets:[
+      {label:'Aumenta risco de abandono',data:posS,backgroundColor:'#e05252',borderRadius:3},
+      {label:'Reduz risco de abandono',data:negS,backgroundColor:'#3ddc84',borderRadius:3}
+    ]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#9ab5a3',font:{size:11},boxWidth:12}}},
+      scales:{
+        x:{stacked:false,ticks:{color:'#5a7a63'},grid:{color:'rgba(255,255,255,0.04)'},title:{display:true,text:'Contribuição SHAP',color:'#5a7a63'}},
+        y:{ticks:{color:'#9ab5a3',font:{size:12}},grid:{color:'rgba(255,255,255,0.03)'}}
+      }}
+  });
+}
+
+// SIMULADOR
+function simSelect(field, val) {
+  simState[field] = val;
+  ['M','F'].forEach(v => {
+    const b = document.getElementById('btn-'+v);
+    if(b) b.classList.toggle('active-sim', v===val);
+  });
+  updateSim();
+}
+function simToggle(field, val) {
+  simState[field] = val;
+  ['S','N'].forEach(v => {
+    const b = document.getElementById(`btn-${field}-${v}`);
+    if(b) b.classList.toggle('active-sim', v===val);
+  });
+  updateSim();
+}
+
+function updateSim() {
+  const idade = parseInt(document.getElementById('sim-idade').value);
+  document.getElementById('sim-idade-val').textContent = idade + ' anos';
+
+  let risk = 0.15;
+  if (idade < 25 || idade > 60) risk += 0.10;
+  if (simState.sexo === 'M') risk += 0.06;
+  if (simState.alc === 'S') risk += 0.22;
+  if (simState.hiv === 'S') risk += 0.14;
+  if (simState.dia === 'S') risk += 0.06;
+  if (simState.inst === 'S') risk += 0.18;
+  const esc = parseInt(document.getElementById('sim-esc').value);
+  risk -= esc * 0.025;
+  risk = Math.max(0.04, Math.min(0.97, risk));
+
+  const pct = Math.round(risk * 100);
+  document.getElementById('gauge-pct').textContent = pct + '%';
+
+  const color = risk < 0.3 ? '#3ddc84' : risk < 0.6 ? '#e8a838' : '#e05252';
+  const label = risk < 0.3 ? 'Risco Baixo' : risk < 0.6 ? 'Risco Moderado' : 'Risco Alto';
+  const cls = risk < 0.3 ? 'badge-green' : risk < 0.6 ? 'badge-warn' : 'badge-red';
+  document.getElementById('risco-badge').innerHTML = `<span class="badge ${cls}" style="font-size:14px;padding:6px 16px;">${label}</span>`;
+
+  const factors = [];
+  if (simState.alc==='S') factors.push('Alcoolismo (+22%)');
+  if (simState.inst==='S') factors.push('Institucionalização (+18%)');
+  if (simState.hiv==='S') factors.push('HIV/AIDS (+14%)');
+  if (simState.sexo==='M') factors.push('Sexo masculino (+6%)');
+  if (simState.dia==='S') factors.push('Diabetes (+6%)');
+  if (esc >= 3) factors.push('Alta escolaridade (−fator protetor)');
+  document.getElementById('risco-factors').innerHTML = factors.length ? '<strong style="color:var(--text3);font-size:11px;font-family:var(--mono);">FATORES ATIVOS:</strong><br>' + factors.map(f=>`• ${f}`).join('<br>') : '<span style="color:var(--text3);">Sem fatores de risco significativos</span>';
+
+  if (CH.gauge) CH.gauge.destroy();
+  CH.gauge = new Chart(document.getElementById('gaugeChart'),{
+    type:'doughnut',
+    data:{datasets:[{data:[risk,1-risk],backgroundColor:[color,'rgba(255,255,255,0.05)'],borderWidth:0,circumference:270,rotation:225}]},
+    options:{responsive:true,maintainAspectRatio:true,cutout:'78%',plugins:{legend:{display:false},tooltip:{enabled:false}}}
+  });
+}
+
+window.addEventListener('load', () => { updateSim(); });
+</script>
+</body>
+</html>
